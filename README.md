@@ -14,8 +14,9 @@ A simple, desktop-based pixel art editor built with Python and Tkinter. This app
 ## **Installation**
 
 First, ensure you have Python installed on your system.  
+
 This project requires a few external libraries. You can install them using pip:  
-pip install \-r requirements.txt
+```pip install \-r requirements.txt```
 
 ## **How to Run**
 
