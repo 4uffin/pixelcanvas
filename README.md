@@ -11,18 +11,41 @@ A simple, desktop-based pixel art editor built with Python and Tkinter. This app
 * **Exporting:** Export your finished pixel art as a high-quality PNG image.  
 * **Usability:** Includes a toggleable grid overlay for precision, and a status bar for user feedback.
 
-## **Installation**
+## Installation
 
-First, ensure you have Python installed on your system.  
+Getting PixelCanvas up and running is a straightforward process. It's highly recommended to use a virtual environment to manage dependencies for your project.
 
-This project requires a few external libraries. You can install them using pip:  
-```pip install \-r requirements.txt```
+### 1. Prerequisites
+
+First, ensure you have Python 3.x installed on your system. You can verify your installation and version by running the following command in your terminal:
+
+```python3 --version```
+
+### 2. Create and Activate a Virtual Environment
+
+Navigate to your project directory in the terminal. Then, create and activate a new virtual environment.
+
+#### On macOS and Linux:
+
+```python3 -m venv venv```
+```source venv/bin/activate```
+
+#### On Windows:
+
+```python -m venv venv```
+```venv\Scripts\activate```
+
+### 3. Install Dependencies
+
+With the virtual environment active, you can install all the required libraries listed in the requirements.txt file using pip.
+
+```pip install -r requirements.txt```
 
 ## **How to Run**
 
 Once the dependencies are installed, you can run the application from your terminal:
 
-python pixel\_canvas.py
+```python pixelcanvas.py```
 
 ## **License**
 
