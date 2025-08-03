@@ -1,12 +1,13 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk, ImageDraw
-import requests
-from io import BytesIO
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 from collections import deque
+
+# Note: The 'requests' and 'BytesIO' imports have been removed as they are no longer
+# needed for loading online images.
 
 # --- Configuration ---
 CANVAS_SIZE = 400
@@ -22,14 +23,12 @@ class PixelCanvas:
     This application provides a grid-based drawing interface with a variety of
     tools, including a standard pixel brush, an eraser, and a flood-fill tool.
     Users can select from a predefined color palette or use custom images from
-    local files or preset URLs as brushes. The application also supports
-    saving and loading projects as JSON files and exporting the final artwork
-    as a PNG image.
+    local files as brushes. The application also supports saving and loading
+    projects as JSON files and exporting the final artwork as a PNG image.
 
     Features:
     - Customizable canvas size and cell size.
     - Multiple drawing modes: color, image, erase, and fill.
-    - Asynchronous loading of images from URLs to prevent UI freezing.
     - Save/Load functionality for project files (JSON format).
     - Exporting the canvas as a high-quality PNG image.
     - Toggleable grid lines for precision drawing.
@@ -62,8 +61,7 @@ class PixelCanvas:
         # Caches to prevent garbage collection and repeated loading.
         self.cell_images = {}
         self.color_swatch_images = {}
-        self.preset_thumbnails = {}
-        self.loading_images = {}
+        # Presets and loading queues for online images have been removed.
         self.executor = ThreadPoolExecutor(max_workers=4)
 
         # --- UI Setup and Initialization ---
@@ -106,21 +104,8 @@ class PixelCanvas:
         # Custom Images submenu
         custom_menu = tk.Menu(self.pick_pixel_menu, tearoff=0)
         self.pick_pixel_menu.add_cascade(label="Custom Images", menu=custom_menu)
-
-        # Preset image URLs (URLs are to a dummy server)
-        preset_paths = {
-            "Grass": "https://duffin.neocities.org/images/pixelcanvas/minecraft_grass_block_by_flutterspon-d9hlkmq-4192425799.jpg",
-            "Dirt": "https://duffin.neocities.org/images/pixelcanvas/2ab1c37cfdff720c6de2ddb07328f145-4195645521.jpg",
-            "Stone": "https://duffin.neocities.org/images/pixelcanvas/eqpOX-1763668591.png",
-            "Cobblestone": "https://duffin.neocities.org/images/pixelcanvas/minecraft%20texturas%20classicas%20-%209-2090894536.jpg",
-            "Sand": "https://duffin.neocities.org/images/pixelcanvas/s189772745713394276_p3861_i148_w750-3664175598.jpeg",
-            "Sandstone": "https://duffin.neocities.org/images/pixelcanvas/638152134000748859-903807525.png",
-            "Water": "https://duffin.neocities.org/images/pixelcanvas/13327895-pack_m-1852891663.jpg",
-            "Lava": "https://duffin.neocities.org/images/pixelcanvas/13914790-pack-icon_xl-2701408835.jpg",
-        }
-        for label, url in preset_paths.items():
-            self.load_preset_thumbnail(label, url, custom_menu)
-        custom_menu.add_separator()
+        
+        # The preset images and their loading logic have been removed.
         custom_menu.add_command(label="Load Custom Image...", command=self.load_image_brush)
 
         # Other tool buttons
@@ -172,7 +157,7 @@ class PixelCanvas:
                 if cell['mode'] == "color":
                     self.canvas.create_rectangle(x, y, x + self.cell_size, y + self.cell_size,
                                                  fill=cell['val'], outline="")
-                elif cell['mode'] in ["image_url", "image_local"]:
+                elif cell['mode'] == "image_local":
                     image_key = (cell['mode'], cell['val'])
                     if image_key in self.cell_images:
                         self.canvas.create_image(x, y, anchor='nw', image=self.cell_images[image_key])
@@ -346,64 +331,8 @@ class PixelCanvas:
         except Exception as e:
             messagebox.showerror("Error", f"Could not load image:\n{e}")
 
-    def load_preset_thumbnail(self, label, url, menu):
-        """
-        Asynchronously loads a preset image's thumbnail from a URL and adds it
-        to the menu once complete. This prevents the UI from freezing.
-        """
-        def _load_in_thread():
-            try:
-                response = requests.get(url, timeout=5)
-                response.raise_for_status()
-                img = Image.open(BytesIO(response.content)).resize((16, 16), Image.LANCZOS)
-                thumb = ImageTk.PhotoImage(img)
-                self.root.after(0, lambda: self.add_thumbnail_to_menu(label, url, thumb, menu))
-            except Exception:
-                # Silently fail on thumbnail load to avoid spamming the user
-                pass
-        
-        self.executor.submit(_load_in_thread)
-
-    def add_thumbnail_to_menu(self, label, url, thumb, menu):
-        """Adds the loaded thumbnail image to the custom images menu."""
-        self.preset_thumbnails[label] = thumb
-        menu.add_command(
-            label=label,
-            image=thumb,
-            compound="left",
-            command=lambda u=url, l=label: self.load_preset_image_brush(u, l)
-        )
-
-    def load_preset_image_brush(self, url, label):
-        """
-        Asynchronously loads a full-size preset image from a URL and sets it
-        as the current brush.
-        """
-        self.update_status(f"Loading preset image: {label}...")
-        
-        def _load_in_thread():
-            try:
-                response = requests.get(url, timeout=5)
-                response.raise_for_status()
-                img = Image.open(BytesIO(response.content)).resize((self.cell_size, self.cell_size), Image.LANCZOS)
-                photo = ImageTk.PhotoImage(img)
-                self.root.after(0, lambda: self.update_brush(photo, url, label))
-            except requests.exceptions.RequestException as e:
-                self.root.after(0, lambda: messagebox.showerror("Network Error", f"Failed to load preset '{label}':\n{e}"))
-                self.root.after(0, lambda: self.select_color("#000000"))
-                self.root.after(0, lambda: self.update_status("Loading failed. Falling back to black color."))
-            except Exception as e:
-                self.root.after(0, lambda: messagebox.showerror("Error", f"Failed to load preset '{label}':\n{e}"))
-                self.root.after(0, lambda: self.select_color("#000000"))
-                self.root.after(0, lambda: self.update_status("Loading failed. Falling back to black color."))
-        self.executor.submit(_load_in_thread)
-    
-    def update_brush(self, photo, url, label):
-        """Updates the current brush with a new image and caches the photo image."""
-        self.current_mode = "image"
-        self.current_image_info = {'type': 'image_url', 'val': url}
-        self.cell_images[('image_url', url)] = photo
-        self.update_status(f"Tool: Image, Preset: {label}")
+    # The following methods related to online presets have been removed.
+    # load_preset_thumbnail, add_thumbnail_to_menu, load_preset_image_brush, update_brush
 
     def save_canvas(self):
         """Saves the current grid data to a JSON file chosen by the user."""
@@ -438,9 +367,7 @@ class PixelCanvas:
                     for row in range(ROWS):
                         for col in range(COLS):
                             cell = self.grid_data[row][col]
-                            if cell['mode'] == 'image_url' and cell['val'] not in self.loading_images:
-                                self.preload_image_from_url(cell['val'])
-                            elif cell['mode'] == 'image_local' and ('image_local', cell['val']) not in self.cell_images:
+                            if cell['mode'] == 'image_local' and ('image_local', cell['val']) not in self.cell_images:
                                 self.preload_image_from_local(cell['val'])
                     self.redraw_canvas()
                     self.update_status(f"Canvas loaded from {os.path.basename(file_path)}")
@@ -451,24 +378,8 @@ class PixelCanvas:
                 messagebox.showerror("Error", f"Failed to load canvas:\n{e}")
                 self.update_status("Failed to load canvas.")
 
-    def preload_image_from_url(self, url):
-        """Asynchronously loads a single image from a URL and caches it."""
-        if url in self.loading_images:
-            return
-
-        self.loading_images[url] = True
-        
-        def _load_in_thread():
-            try:
-                response = requests.get(url, timeout=5)
-                response.raise_for_status()
-                img = Image.open(BytesIO(response.content)).resize((self.cell_size, self.cell_size), Image.LANCZOS)
-                photo = ImageTk.PhotoImage(img)
-                self.root.after(0, lambda: self.cache_and_redraw(('image_url', url), photo))
-            except Exception:
-                self.root.after(0, lambda: self.handle_preload_error(url))
-
-        self.executor.submit(_load_in_thread)
+    # The `preload_image_from_url`, `cache_and_redraw`, and `handle_preload_error` methods have been removed.
+    # The `preload_image_from_local` method is kept and will handle local images.
 
     def preload_image_from_local(self, file_path):
         """Loads a single image from a local path and caches it."""
@@ -484,25 +395,6 @@ class PixelCanvas:
                     if cell['mode'] == 'image_local' and cell['val'] == file_path:
                         self.grid_data[r][c] = {'mode': 'color', 'val': '#ffffff'}
             self.redraw_canvas()
-
-    def cache_and_redraw(self, key, photo):
-        """Adds a loaded image to the cache and redraws the canvas."""
-        self.cell_images[key] = photo
-        if key[1] in self.loading_images:
-            del self.loading_images[key[1]]
-        self.redraw_canvas()
-
-    def handle_preload_error(self, url):
-        """Handles an error during image preloading by replacing the cell content."""
-        if url in self.loading_images:
-            del self.loading_images[url]
-        messagebox.showerror("Error", f"Failed to preload image from URL:\n{url}")
-        
-        for r, row in enumerate(self.grid_data):
-            for c, cell in enumerate(row):
-                if cell['mode'] == 'image_url' and cell['val'] == url:
-                    self.grid_data[r][c] = {'mode': 'color', 'val': '#ffffff'}
-        self.redraw_canvas()
 
     def export_as_image(self):
         """
@@ -526,7 +418,7 @@ class PixelCanvas:
 
                         if cell['mode'] == "color":
                             draw.rectangle([x1, y1, x2, y2], fill=cell['val'])
-                        elif cell['mode'] in ["image_url", "image_local"]:
+                        elif cell['mode'] == "image_local":
                             image_key = (cell['mode'], cell['val'])
                             if image_key in self.cell_images:
                                 cell_img = self.cell_images[image_key]
